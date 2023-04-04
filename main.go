@@ -51,6 +51,12 @@ func main() {
 	}
 	remoteworkdir := mycfg.GetStrVal("hosts", "remotedir")
 	localworkdir := mycfg.GetStrVal("hosts", "localdir")
+	if !hctool.ChkLocalPath(localworkdir) {
+		panic("Local Work Directory Must Be Absolute Path!")
+	}
+	if !hctool.ChkRemotePath(remoteworkdir) {
+		panic("Remote Work Directory Must Be Absolute Path!")
+	}
 	remoteDir := path.Join(remoteworkdir, time.Now().Format("20060102"))
 	localDir := path.Join(localworkdir, time.Now().Format("20060102"))
 	for _, host := range runlst {
@@ -74,8 +80,14 @@ func main() {
 		sftptool.RunHC(sshclient, remoteDir, mydict["hcfile"], mydict["cfile"], detail)
 		sftptool.Download(sftpclient, remoteDir, localHostDir, detail)
 		sftptool.RemoveHC(sftpclient, remoteDir, detail)
-		sftptool.RemoveHC(sftpclient, remoteworkdir, detail)
-		sftpclient.Close()
-		sshclient.Close()
+		//sftptool.RemoveHC(sftpclient, remoteworkdir, detail)
+		err = sftpclient.Close()
+		if err != nil {
+			panic("SFTP Connect Failed:" + err.Error())
+		}
+		err = sshclient.Close()
+		if err != nil {
+			panic("SSH Connect Failed:" + err.Error())
+		}
 	}
 }

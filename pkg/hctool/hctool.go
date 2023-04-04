@@ -3,6 +3,8 @@ package hctool
 import (
 	"fmt"
 	"net"
+	"path"
+	"path/filepath"
 	"rtRunner/pkg/ostool"
 	"strings"
 )
@@ -50,4 +52,18 @@ func HostParse(hostinfo string) map[string]string {
 	mydict["cmode"] = cmode
 	mydict["cfile"] = fmt.Sprintf("conf_%s.ini", cmode)
 	return mydict
+}
+
+func ChkLocalPath(mypath string) bool {
+	if filepath.IsAbs(mypath) {
+		return true
+	}
+	return false
+}
+
+func ChkRemotePath(mypath string) bool {
+	if path.IsAbs(mypath) {
+		return true
+	}
+	return false
 }
