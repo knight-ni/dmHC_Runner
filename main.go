@@ -6,12 +6,11 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 	"os"
-	"path"
+	"path/filepath"
 	"rtRunner/pkg/cfgparser"
 	"rtRunner/pkg/hctool"
 	"rtRunner/pkg/sftptool"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -21,6 +20,7 @@ func main() {
 		runlst     []string
 		sshclient  *ssh.Client
 		sftpclient *sftp.Client
+		myhost     sftptool.HostInfo
 	)
 	log.SetLevel(log.ErrorLevel)
 	mylog := log.New()
@@ -49,25 +49,24 @@ func main() {
 	} else {
 		panic("At Least One Host in hostlist!")
 	}
-	remoteworkdir := mycfg.GetStrVal("hosts", "remotedir")
 	localworkdir := mycfg.GetStrVal("hosts", "localdir")
 	if !hctool.ChkLocalPath(localworkdir) {
 		panic("Local Work Directory Must Be Absolute Path!")
 	}
-	if !hctool.ChkRemotePath(remoteworkdir) {
-		panic("Remote Work Directory Must Be Absolute Path!")
-	}
-	remoteDir := path.Join(remoteworkdir, time.Now().Format("20060102"))
-	localDir := path.Join(localworkdir, time.Now().Format("20060102"))
+	localDir := filepath.Join(localworkdir, time.Now().Format("20060102"))
 	for _, host := range runlst {
 		hostinfo := mycfg.GetStrVal("hosts", host)
-		mydict := hctool.HostParse(hostinfo)
-		localHostDir := path.Join(localDir, mydict["ip"]+"_"+mydict["cmode"])
-		port, err := strconv.Atoi(mydict["port"])
+		sftptool.HostInit(hostinfo, &myhost)
+		*myhost.FLST = append(*myhost.FLST, myhost.HCFILE, myhost.CFILE)
+		localHostDir := hctool.SmartPathJoin(myhost.OS, localDir, myhost.IP+"_"+myhost.CMODE)
+		if !sftptool.ChkRemotePath(myhost) {
+			panic("Remote Work Directory Must Be Absolute Path!")
+		}
+		myhost.RemoteDIR = hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, time.Now().Format("20060102"))
 		if err != nil {
 			panic("Invalid Port")
 		}
-		sshclient, err = sftptool.SshConnect(mydict["usr"], mydict["pwd"], mydict["ip"], port)
+		sshclient, err = sftptool.SshConnect(myhost)
 		if err != nil {
 			panic("SSH Connect Failed:" + err.Error())
 		}
@@ -75,11 +74,14 @@ func main() {
 		if err != nil {
 			panic("SFTP Connect Failed:" + err.Error())
 		}
-		fmt.Printf(">>>>>> Working on Host:%s <<<<<<<\n", host)
-		sftptool.Upload(sftpclient, remoteDir, mydict["hcfile"], mydict["cfile"], detail)
-		sftptool.RunHC(sshclient, remoteDir, mydict["hcfile"], mydict["cfile"], detail)
-		sftptool.Download(sftpclient, remoteDir, localHostDir, detail)
-		sftptool.RemoveHC(sftpclient, remoteDir, detail)
+		fmt.Printf(">>>>>> Working on Host:%s  Mode:%s <<<<<<<\n", myhost.IP, myhost.CMODE)
+		sftptool.DmHC_Chk(myhost)
+		sftptool.MkRemoteDir(sftpclient, myhost)
+		sftptool.ChkDirEmpty(sftpclient, myhost)
+		sftptool.Upload(sftpclient, myhost, detail)
+		sftptool.RunHC(sshclient, myhost, detail)
+		sftptool.Download(sftpclient, localHostDir, myhost, detail)
+		sftptool.RemoveHC(sftpclient, myhost, detail)
 		//sftptool.RemoveHC(sftpclient, remoteworkdir, detail)
 		err = sftpclient.Close()
 		if err != nil {
