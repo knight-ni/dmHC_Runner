@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 	"net"
+	"net/url"
 	"os"
 	"regexp"
 	"rtRunner/pkg/hctool"
@@ -38,11 +39,11 @@ func HostInit(hostinfo string, myhost *HostInfo) {
 	myhost.PORT = port
 	myhost.OS = tmpstr[1]
 	myhost.CPU = tmpstr[2]
-	myhost.USR = tmpstr[3]
+	myhost.USR = url.PathEscape(tmpstr[3])
 	myhost.PWD = tmpstr[4]
 	myhost.CMODE = tmpstr[5]
 	myhost.HCFILE = hctool.DmHC_Sel(myhost.OS, myhost.CPU)
-	myhost.CFILE = fmt.Sprintf("conf_%s.ini", myhost.CMODE)
+	myhost.CFILE = fmt.Sprintf("conf_%s_%s.ini", myhost.CMODE, myhost.OS)
 	myhost.FLST = &[]string{}
 	myhost.RemoteDIR = tmpstr[6]
 }
@@ -163,11 +164,9 @@ func RunCmd(client *ssh.Client, cmd string, detail int64) {
 		fmt.Println(cmd)
 	}
 	if err := session.Run(cmd); err != nil {
-		fmt.Errorf(
-			"%s has failed: [%w] %s",
-			cmd,
-			err,
-			session.Stderr.(*bytes.Buffer).String(),
+		panic(
+			err.Error() + "\n" + session.Stdout.(*bytes.Buffer).String() + "\n" +
+				session.Stderr.(*bytes.Buffer).String(),
 		)
 	}
 	result := session.Stdout.(*bytes.Buffer).String()
@@ -248,13 +247,17 @@ func RemoveHC(client *sftp.Client, myhost HostInfo, detail int64) {
 		}
 		err := client.Remove(fname)
 		if err != nil {
-			panic("Removing File Error:" + err.Error())
+			panic("Removing File Failed:" + err.Error())
 		}
+
 	}
-	//err := client.RemoveDirectory(remoteDir)
-	//if err != nil {
-	//	panic("Removing Remote Directory Failed:" + err.Error())
-	//}
+	if detail > 0 {
+		fmt.Printf(">>>>>> Removing Directory %s <<<<<<<\n", myhost.RemoteDIR)
+	}
+	err := client.RemoveDirectory(myhost.RemoteDIR)
+	if err != nil {
+		panic("Removing Remote Directory Failed:" + err.Error())
+	}
 }
 
 func ChkDirEmpty(client *sftp.Client, myhost HostInfo) {

@@ -3,6 +3,7 @@ module rtRunner
 go 1.19
 
 require (
+	gitee.com/jiewen/gooxml v0.0.0-20210903060946-c517a803bade
 	github.com/Unknwon/goconfig v1.0.0
 	github.com/pkg/sftp v1.13.5
 	github.com/safchain/ethtool v0.3.0

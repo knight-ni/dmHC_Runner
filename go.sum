@@ -1,3 +1,5 @@
+gitee.com/jiewen/gooxml v0.0.0-20210903060946-c517a803bade h1:CABeUhk0ep/eOT9yyWctqjvl/lIth3H1JWMFn+3WE/A=
+gitee.com/jiewen/gooxml v0.0.0-20210903060946-c517a803bade/go.mod h1:6/ipB8Nn36SfpQhTNrdXVYczfYjZEiKnsU3JNa54tLE=
 github.com/Unknwon/goconfig v1.0.0 h1:9IAu/BYbSLQi8puFjUQApZTxIHqSwrj5d8vpP8vTq4A=
 github.com/Unknwon/goconfig v1.0.0/go.mod h1:wngxua9XCNjvHjDiTiV26DaKDT+0c63QR6H5hjVUUxw=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

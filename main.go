@@ -43,7 +43,9 @@ func main() {
 	mycfg.Initialize(mylog)
 
 	runstr := mycfg.GetStrVal("hosts", "hostlist")
-	detail := mycfg.GetIntVal("debug", "show_db_func")
+	doclear := mycfg.GetIntVal("hosts", "doclear")
+	overwrite := mycfg.GetIntVal("hosts", "overwrite")
+	detail := mycfg.GetIntVal("debug", "show_verbose")
 	if runstr != "" {
 		runlst = strings.Split(mycfg.GetStrVal("hosts", "hostlist"), "|")
 	} else {
@@ -63,6 +65,7 @@ func main() {
 			panic("Remote Work Directory Must Be Absolute Path!")
 		}
 		myhost.RemoteDIR = hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, time.Now().Format("20060102"))
+		myhost.RemoteDIR = hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, "")
 		if err != nil {
 			panic("Invalid Port")
 		}
@@ -77,12 +80,18 @@ func main() {
 		fmt.Printf(">>>>>> Working on Host:%s  Mode:%s <<<<<<<\n", myhost.IP, myhost.CMODE)
 		sftptool.DmHC_Chk(myhost)
 		sftptool.MkRemoteDir(sftpclient, myhost)
-		sftptool.ChkDirEmpty(sftpclient, myhost)
+		if overwrite == 0 {
+			sftptool.ChkDirEmpty(sftpclient, myhost)
+		}
 		sftptool.Upload(sftpclient, myhost, detail)
 		sftptool.RunHC(sshclient, myhost, detail)
 		sftptool.Download(sftpclient, localHostDir, myhost, detail)
-		sftptool.RemoveHC(sftpclient, myhost, detail)
-		//sftptool.RemoveHC(sftpclient, remoteworkdir, detail)
+		//reporter.ReadPara(localHostDir)
+		if doclear > 0 {
+			sftptool.RemoveHC(sftpclient, myhost, detail)
+		} else {
+			fmt.Printf("Please Remove %s Manully!\n", myhost.RemoteDIR)
+		}
 		err = sftpclient.Close()
 		if err != nil {
 			panic("SFTP Connect Failed:" + err.Error())

@@ -3,6 +3,7 @@ package hctool
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 )
 
 func DmHC_Sel(taros string, tarcpu string) string {
@@ -23,13 +24,21 @@ func ChkLocalPath(mypath string) bool {
 }
 
 func SmartPathJoin(osname string, path1 string, path2 string) string {
-	var sep string
+	var sep rune
 	if osname == "linux" {
-		sep = "/"
-		return path1 + sep + path2
+		sep = '/'
+		if strings.HasSuffix(path1, "/") {
+			return path1 + path2
+		} else {
+			return path1 + string(sep) + path2
+		}
 	} else if osname == "windows" {
-		sep = "/" //FOR SOME SPECIAL REASON
-		return path1 + sep + path2
+		sep = '\\'
+		if strings.HasSuffix(path1, "\\") {
+			return path1 + path2
+		} else {
+			return path1 + string(sep) + path2
+		}
 	}
 	panic("Unknown Os!")
 }
