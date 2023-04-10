@@ -90,3 +90,31 @@ func (cf *Cfile) GetUIntVal(section string, key string) uint64 {
 	}
 	return uintval
 }
+
+func (cf *Cfile) SetStrVal(section string, key string, value string) {
+	if !cf.Cfg.SetValue(section, key, value) {
+		cf.Log.Warnf("set config str value failed!")
+	}
+}
+
+func (cf *Cfile) SetIntVal(section string, key string, value int) {
+	if !cf.Cfg.SetValue(section, key, strconv.Itoa(value)) {
+		cf.Log.Warnf("set config int value failed!")
+	}
+}
+
+func (cf *Cfile) SetFltVal(section string, key string, value float64) {
+	if !cf.Cfg.SetValue(section, key, strconv.FormatFloat(value, 'E', -1, 32)) {
+		cf.Log.Warnf("set config float value failed!")
+	}
+}
+
+func (cf *Cfile) SetUIntVal(section string, key string, value uint64) {
+	if !cf.Cfg.SetValue(section, key, strconv.FormatUint(value, 10)) {
+		cf.Log.Warnf("set config uint value failed!")
+	}
+}
+
+func (cf *Cfile) SaveFile(path string) {
+	goconfig.SaveConfigFile(cf.Cfg, path)
+}

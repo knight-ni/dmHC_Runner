@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 const (
@@ -12,7 +13,7 @@ const (
 	dt2 = "2006年01月02日"
 )
 
-func ReadPara(localdir string) {
+func SimpleGen(localdir string, simpno int) {
 	tmplst, err := os.ReadDir(localdir)
 	if err != nil {
 		panic("Read Local Docx Failed " + err.Error())
@@ -21,18 +22,41 @@ func ReadPara(localdir string) {
 	for _, v := range tmplst {
 		if v.IsDir() {
 			continue
+		} else if strings.HasPrefix(v.Name(), "Simple") || strings.HasPrefix(v.Name(), "~") {
+			continue
 		} else {
 			fname := filter.FindString(v.Name())
 			if fname != "" {
+
 				doc, err := document.Open(filepath.Join(localdir, v.Name()))
 				if err != nil {
-					panic(err.Error())
+					panic("error opening document:" + err.Error())
 				}
-				for _, par := range doc.Paragraphs() { //读取文档类所有段落
-					for _, r := range par.Runs() {
-						par.RemoveRun(r)
-					}
+
+				//paragraphs := []document.Paragraph{}
+				//for _, p := range doc.Paragraphs() {
+				//	paragraphs = append(paragraphs, p)
+				//}
+				if err != nil {
+					panic("Invalid Simple Number!")
 				}
+				doc.X().Body.EG_BlockLevelElts = doc.X().Body.EG_BlockLevelElts[:simpno]
+				//
+				//dflag := 0
+				//for _, p := range paragraphs {
+				//	for _, r := range p.Runs() {
+				//		if strings.Contains(r.Text(), "前10 大小对象信息") {
+				//			dflag += 1
+				//		}
+				//	}
+				//
+				//	if dflag > 0 {
+				//
+				//
+				//
+				//	}
+				//}
+				doc.SaveToFile(filepath.Join(localdir, "Simple-"+v.Name()))
 			}
 		}
 	}

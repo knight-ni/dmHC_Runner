@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"rtRunner/pkg/cfgparser"
 	"rtRunner/pkg/hctool"
+	"rtRunner/pkg/reporter"
 	"rtRunner/pkg/sftptool"
 	"runtime"
 	"strings"
@@ -30,6 +31,7 @@ func main() {
 	}
 	mylog.SetOutput(logfile)
 	mycfg := cfgparser.Cfile{}
+
 	if len(os.Args) > 1 {
 		mycfg.Path = os.Args[1]
 	} else {
@@ -59,8 +61,9 @@ func main() {
 	for _, host := range runlst {
 		hostinfo := mycfg.GetStrVal("hosts", host)
 		sftptool.HostInit(hostinfo, &myhost)
+		sftptool.ConfGen(myhost, mylog)
 		*myhost.FLST = append(*myhost.FLST, myhost.HCFILE, myhost.CFILE)
-		localHostDir := hctool.SmartPathJoin(myhost.OS, localDir, myhost.IP+"_"+myhost.CMODE)
+		localHostDir := filepath.Join(localDir, myhost.IP)
 		if !sftptool.ChkRemotePath(myhost) {
 			panic("Remote Work Directory Must Be Absolute Path!")
 		}
@@ -77,7 +80,7 @@ func main() {
 		if err != nil {
 			panic("SFTP Connect Failed:" + err.Error())
 		}
-		fmt.Printf(">>>>>> Working on Host:%s  Mode:%s <<<<<<<\n", myhost.IP, myhost.CMODE)
+		fmt.Printf(">>>>>> Working on Host:%s <<<<<<<\n", myhost.IP)
 		sftptool.DmHC_Chk(myhost)
 		sftptool.MkRemoteDir(sftpclient, myhost)
 		if overwrite == 0 {
@@ -86,7 +89,11 @@ func main() {
 		sftptool.Upload(sftpclient, myhost, detail)
 		sftptool.RunHC(sshclient, myhost, detail)
 		sftptool.Download(sftpclient, localHostDir, myhost, detail)
-		//reporter.ReadPara(localHostDir)
+		reporter.SimpleGen(localHostDir, myhost.SimpleNo)
+		err := os.Remove(myhost.CFILE)
+		if err != nil {
+			return
+		}
 		if doclear > 0 {
 			sftptool.RemoveHC(sftpclient, myhost, detail)
 		} else {

@@ -16,6 +16,7 @@ require (
 )
 
 require (
+	baliance.com/gooxml v1.0.1 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
@@ -24,5 +25,6 @@ require (
 	github.com/smartystreets/goconvey v1.7.2 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.0 // indirect
+	github.com/unidoc/unioffice v1.22.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect
 )

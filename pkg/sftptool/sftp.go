@@ -4,48 +4,64 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/pkg/sftp"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
-	"net"
 	"net/url"
 	"os"
 	"regexp"
+	"rtRunner/pkg/cfgparser"
 	"rtRunner/pkg/hctool"
 	"rtRunner/pkg/ostool"
+	"strconv"
 	"strings"
 	"time"
 )
 
 type HostInfo struct {
 	IP        string
-	PORT      string
+	SSH_PORT  int
+	DB_PORT   int
+	DM_HOME   string
 	OS        string
 	CPU       string
-	USR       string
-	PWD       string
-	CMODE     string
+	SSH_USR   string
+	SSH_PWD   string
+	DB_USR    string
+	DB_PWD    string
 	HCFILE    string
 	CFILE     string
 	FLST      *[]string
 	RemoteDIR string
+	SimpleNo  int
 }
 
 func HostInit(hostinfo string, myhost *HostInfo) {
+	var err error
 	tmpstr := strings.Split(hostinfo, "|")
-	ip, port, err := net.SplitHostPort(tmpstr[0])
+	myhost.IP = tmpstr[0]
+	myhost.SSH_PORT, err = strconv.Atoi(tmpstr[1])
 	if err != nil {
-		fmt.Println("Invalid IP or Port")
+		panic("Invalid SSH Port Number!")
 	}
-	myhost.IP = ip
-	myhost.PORT = port
-	myhost.OS = tmpstr[1]
-	myhost.CPU = tmpstr[2]
-	myhost.USR = url.PathEscape(tmpstr[3])
-	myhost.PWD = tmpstr[4]
-	myhost.CMODE = tmpstr[5]
+	myhost.DB_PORT, err = strconv.Atoi(tmpstr[2])
+	if err != nil {
+		panic("Invalid DB Port Number!")
+	}
+	myhost.DM_HOME = tmpstr[3]
+	myhost.OS = tmpstr[4]
+	myhost.CPU = tmpstr[5]
+	myhost.SSH_USR = tmpstr[6]
+	myhost.SSH_PWD = url.PathEscape(tmpstr[7])
+	myhost.DB_USR = tmpstr[8]
+	myhost.DB_PWD = url.PathEscape(tmpstr[9])
 	myhost.HCFILE = hctool.DmHC_Sel(myhost.OS, myhost.CPU)
-	myhost.CFILE = fmt.Sprintf("conf_%s_%s.ini", myhost.CMODE, myhost.OS)
+	myhost.CFILE = fmt.Sprintf("conf_%s_%s.ini", myhost.IP, myhost.OS)
 	myhost.FLST = &[]string{}
-	myhost.RemoteDIR = tmpstr[6]
+	myhost.RemoteDIR = tmpstr[10]
+	myhost.SimpleNo, err = strconv.Atoi(tmpstr[11])
+	if err != nil {
+		panic("Invalid Simple Number!")
+	}
 }
 
 func SshConnect(myhost HostInfo) (*ssh.Client, error) {
@@ -59,16 +75,16 @@ func SshConnect(myhost HostInfo) (*ssh.Client, error) {
 	)
 	// get auth method
 	auth = make([]ssh.AuthMethod, 0)
-	auth = append(auth, ssh.Password(myhost.PWD))
+	auth = append(auth, ssh.Password(myhost.SSH_PWD))
 	clientConfig = &ssh.ClientConfig{
-		User:            myhost.USR,
+		User:            myhost.SSH_USR,
 		Auth:            auth,
 		Timeout:         30 * time.Second,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		//ssh.FixedHostKey(hostKey),
 	}
 	// connet to sshtool
-	addr = fmt.Sprintf("%s:%s", myhost.IP, myhost.PORT)
+	addr = fmt.Sprintf("%s:%d", myhost.IP, myhost.SSH_PORT)
 	if sshClient, err = ssh.Dial("tcp", addr, clientConfig); err != nil {
 		return nil, err
 	}
@@ -284,4 +300,14 @@ func SmartIsAbs(osname, path string) bool {
 		return len(path) > 0 && path[1] == ':' && path[2] == '\\'
 	}
 	return false
+}
+
+func ConfGen(myhost HostInfo, mylog *logrus.Logger) {
+	srccfg := cfgparser.Cfile{Path: fmt.Sprintf("conf_%s.ini", myhost.OS)}
+	srccfg.Initialize(mylog)
+	srccfg.SetStrVal("database", "dmhome", myhost.DM_HOME)
+	srccfg.SetStrVal("database", "svrname", fmt.Sprintf("127.0.0.1:%d", myhost.DB_PORT))
+	srccfg.SetStrVal("database", "username", myhost.DB_USR)
+	srccfg.SetStrVal("database", "password", myhost.DB_PWD)
+	srccfg.SaveFile(myhost.CFILE)
 }
