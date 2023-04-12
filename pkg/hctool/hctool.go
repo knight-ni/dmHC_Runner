@@ -6,6 +6,9 @@ import (
 	"strings"
 )
 
+var Support_CPU = []string{"amd64", "arm64", "ppc64le"}
+var Support_OS = []string{"linux", "windows"}
+
 func DmHC_Sel(taros string, tarcpu string) string {
 	var hcfile string
 	if taros == "linux" {

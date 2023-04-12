@@ -60,11 +60,7 @@ func main() {
 	for _, host := range runlst {
 		sftptool.HostInit(host, dir, mycfg, &myhost)
 		sftptool.ConfGen(myhost, dir)
-
 		localHostDir := filepath.Join(localDir, fmt.Sprintf("%s_%d", myhost.IP, myhost.SimpleNo))
-		if !sftptool.ChkRemotePath(myhost) {
-			panic("Remote Work Directory Must Be Absolute Path!")
-		}
 		myhost.RemoteDIR = hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, time.Now().Format("20060102"))
 		myhost.RemoteDIR = hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, "")
 		sshclient, err = sftptool.SshConnect(myhost)

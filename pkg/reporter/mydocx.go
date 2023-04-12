@@ -8,11 +8,6 @@ import (
 	"strings"
 )
 
-const (
-	dt  = "20060102"
-	dt2 = "2006年01月02日"
-)
-
 func SimpleGen(localdir string) {
 	tmplst, err := os.ReadDir(localdir)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"rtRunner/pkg/cfgparser"
 	"rtRunner/pkg/hctool"
 	"rtRunner/pkg/ostool"
+	"sort"
 	"time"
 )
 
@@ -36,23 +38,51 @@ type HostInfo struct {
 	SimpleNo  int
 }
 
+func in(target string, str_array []string) bool {
+	sort.Strings(str_array)
+	index := sort.SearchStrings(str_array, target)
+	if index < len(str_array) && str_array[index] == target {
+		return true
+	}
+	return false
+}
+
 func HostInit(host string, localdir string, mycfg cfgparser.Cfile, myhost *HostInfo) {
 	myhost.LocalDir = localdir
 	myhost.Customer = mycfg.GetStrVal(host, "customer")
 	myhost.Appname = mycfg.GetStrVal(host, "appname")
 	myhost.IP = mycfg.GetStrVal(host, "address")
+	ip := net.ParseIP(myhost.IP)
+	if ip == nil {
+		panic("Invalid IP Address!")
+	}
 	myhost.SSH_PORT = mycfg.GetIntVal(host, "ssh_port")
 	myhost.DB_PORT = mycfg.GetIntVal(host, "db_port")
-	myhost.DM_HOME = mycfg.GetStrVal(host, "dm_home")
 	myhost.OS = mycfg.GetStrVal(host, "os")
+	if !in(myhost.OS, hctool.Support_OS) {
+		panic(fmt.Sprintf("OS Can Only Be In %v", hctool.Support_OS))
+	}
 	myhost.CPU = mycfg.GetStrVal(host, "cpu")
+	if !in(myhost.CPU, hctool.Support_CPU) {
+		panic(fmt.Sprintf("CPU Can Only Be In %v", hctool.Support_CPU))
+	}
 	myhost.SSH_USR = mycfg.GetStrVal(host, "ssh_usr")
 	myhost.SSH_PWD = url.PathEscape(mycfg.GetStrVal(host, "ssh_pwd"))
 	myhost.DB_USR = mycfg.GetStrVal(host, "db_usr")
 	myhost.DB_PWD = url.PathEscape(mycfg.GetStrVal(host, "db_pwd"))
 	myhost.HCFILE = hctool.DmHC_Sel(myhost.OS, myhost.CPU)
 	myhost.RemoteDIR = mycfg.GetStrVal(host, "remotedir")
+	if !SmartIsAbs(myhost.OS, myhost.RemoteDIR) {
+		panic("Remote Work Directory Must Be Absolute Path!")
+	}
+	myhost.DM_HOME = mycfg.GetStrVal(host, "dm_home")
+	if !SmartIsAbs(myhost.OS, myhost.DM_HOME) {
+		panic("DM HOME Must Be Absolute Path!")
+	}
 	myhost.SimpleNo = mycfg.GetIntVal(host, "simple")
+	if myhost.SimpleNo != 0 && myhost.SimpleNo != 1 {
+		panic("SimpleNo Can Only Be 0 or 1!")
+	}
 	myhost.CFILE = fmt.Sprintf("conf_%s_%s_%d.ini", myhost.IP, myhost.OS, myhost.SimpleNo)
 	myhost.FLST = &[]string{myhost.HCFILE, myhost.CFILE}
 }
@@ -285,7 +315,7 @@ func ChkDirEmpty(client *sftp.Client, myhost HostInfo) {
 	}
 }
 
-func ChkRemotePath(myhost HostInfo) bool {
+func ChkRemotePath(myhost *HostInfo) bool {
 	if SmartIsAbs(myhost.OS, myhost.RemoteDIR) {
 		return true
 	}
