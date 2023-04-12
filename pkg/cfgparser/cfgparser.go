@@ -31,7 +31,6 @@ func (cf *Cfile) GetStrVal(section string, key string) string {
 	val, err := cf.Cfg.GetValue(section, key)
 	if err != nil {
 		panic("get config value failed! error:" + err.Error())
-		val = ""
 	}
 	return val
 }
@@ -41,7 +40,6 @@ func (cf *Cfile) GetBigIntVal(section string, key string) int64 {
 	intval, err := strconv.ParseInt(tmpval, 10, 64)
 	if err != nil {
 		panic("get config value " + key + " failed! error:" + err.Error())
-		intval = 0
 	}
 	return intval
 }
@@ -51,7 +49,6 @@ func (cf *Cfile) GetIntVal(section string, key string) int {
 	intval, err := strconv.ParseInt(tmpval, 10, 64)
 	if err != nil {
 		panic("config value " + key + " not valid int value! error:" + err.Error())
-		intval = 0
 	}
 	return int(intval)
 }
@@ -61,7 +58,6 @@ func (cf *Cfile) GetFltVal(section string, key string) float64 {
 	fltval, err := strconv.ParseFloat(tmpval, 64)
 	if err != nil {
 		panic("config value " + key + " not valid float value! error:" + err.Error())
-		fltval = 0.00
 	}
 	return fltval
 }
@@ -71,7 +67,6 @@ func (cf *Cfile) GetUIntVal(section string, key string) uint64 {
 	uintval, err := strconv.ParseUint(tmpval, 10, 64)
 	if err != nil {
 		panic("config value " + key + " not valid uint value! error:" + err.Error())
-		uintval = 0
 	}
 	return uintval
 }
@@ -93,5 +88,8 @@ func (cf *Cfile) SetUIntVal(section string, key string, value uint64) {
 }
 
 func (cf *Cfile) SaveFile(path string) {
-	goconfig.SaveConfigFile(cf.Cfg, path)
+	err := goconfig.SaveConfigFile(cf.Cfg, path)
+	if err != nil {
+		panic("Config File Save Failed! " + err.Error())
+	}
 }
