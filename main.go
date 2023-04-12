@@ -3,75 +3,70 @@ package main
 import (
 	"fmt"
 	"github.com/pkg/sftp"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 	"os"
 	"path/filepath"
 	"rtRunner/pkg/cfgparser"
 	"rtRunner/pkg/hctool"
-	"rtRunner/pkg/reporter"
 	"rtRunner/pkg/sftptool"
-	"runtime"
 	"strings"
 	"time"
 )
 
+func pause() {
+	b := make([]byte, 1)
+	fmt.Println("Press Any Key To Exit:")
+	_, _ = os.Stdin.Read(b)
+}
+
 func main() {
 	var (
+		err        error
 		runlst     []string
 		sshclient  *ssh.Client
 		sftpclient *sftp.Client
 		myhost     sftptool.HostInfo
+		dir        string
 	)
-	log.SetLevel(log.ErrorLevel)
-	mylog := log.New()
-	logfile, err := os.OpenFile("rtRunner.log", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
-		panic("Create Logfile For rtRunner Failed:" + err.Error())
-	}
-	mylog.SetOutput(logfile)
+
 	mycfg := cfgparser.Cfile{}
 
 	if len(os.Args) > 1 {
+		dir, err = filepath.Abs(filepath.Dir(os.Args[1]))
+		if err != nil {
+			panic("Get Exec Dir Failed!")
+		}
 		mycfg.Path = os.Args[1]
 	} else {
-		ostype := runtime.GOOS
-		if ostype == "linux" {
-			mycfg.Path = "./rtConf.ini"
-		} else if ostype == "windows" {
-			mycfg.Path = ".\\rtConf.ini"
+		dir, err = filepath.Abs(filepath.Dir(os.Args[0]))
+		if err != nil {
+			panic("Get Exec Dir Failed!")
 		}
+		mycfg.Path = filepath.Join(dir, "rtConf.ini")
 	}
-	mycfg.Initialize(mylog)
+	mycfg.Initialize()
 
-	runstr := mycfg.GetStrVal("hosts", "hostlist")
-	doclear := mycfg.GetIntVal("hosts", "doclear")
-	overwrite := mycfg.GetIntVal("hosts", "overwrite")
+	runstr := mycfg.GetStrVal("base", "hostlist")
+	doclear := mycfg.GetIntVal("base", "doclear")
+	overwrite := mycfg.GetIntVal("base", "overwrite")
 	detail := mycfg.GetIntVal("debug", "show_verbose")
 	if runstr != "" {
-		runlst = strings.Split(mycfg.GetStrVal("hosts", "hostlist"), "|")
+		runlst = strings.Split(runstr, "|")
 	} else {
 		panic("At Least One Host in hostlist!")
 	}
-	localworkdir := mycfg.GetStrVal("hosts", "localdir")
-	if !hctool.ChkLocalPath(localworkdir) {
-		panic("Local Work Directory Must Be Absolute Path!")
-	}
-	localDir := filepath.Join(localworkdir, time.Now().Format("20060102"))
+
+	localDir := filepath.Join(dir, time.Now().Format("20060102"))
 	for _, host := range runlst {
-		hostinfo := mycfg.GetStrVal("hosts", host)
-		sftptool.HostInit(hostinfo, &myhost)
-		sftptool.ConfGen(myhost, mylog)
-		*myhost.FLST = append(*myhost.FLST, myhost.HCFILE, myhost.CFILE)
-		localHostDir := filepath.Join(localDir, myhost.IP)
+		sftptool.HostInit(host, dir, mycfg, &myhost)
+		sftptool.ConfGen(myhost, dir)
+
+		localHostDir := filepath.Join(localDir, fmt.Sprintf("%s_%d", myhost.IP, myhost.SimpleNo))
 		if !sftptool.ChkRemotePath(myhost) {
 			panic("Remote Work Directory Must Be Absolute Path!")
 		}
 		myhost.RemoteDIR = hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, time.Now().Format("20060102"))
 		myhost.RemoteDIR = hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, "")
-		if err != nil {
-			panic("Invalid Port")
-		}
 		sshclient, err = sftptool.SshConnect(myhost)
 		if err != nil {
 			panic("SSH Connect Failed:" + err.Error())
@@ -80,21 +75,21 @@ func main() {
 		if err != nil {
 			panic("SFTP Connect Failed:" + err.Error())
 		}
-		fmt.Printf(">>>>>> Working on Host:%s <<<<<<<\n", myhost.IP)
-		sftptool.DmHC_Chk(myhost)
+		fmt.Printf(">>>>>> Working On Instance: %s:%d <<<<<<<\n", myhost.IP, myhost.DB_PORT)
 		sftptool.MkRemoteDir(sftpclient, myhost)
 		if overwrite == 0 {
 			sftptool.ChkDirEmpty(sftpclient, myhost)
 		}
+		sftptool.DmHC_Chk(myhost)
 		sftptool.Upload(sftpclient, myhost, detail)
 		sftptool.RunHC(sshclient, myhost, detail)
 		sftptool.Download(sftpclient, localHostDir, myhost, detail)
-		reporter.SimpleGen(localHostDir, myhost.SimpleNo)
-		err := os.Remove(myhost.CFILE)
-		if err != nil {
-			return
-		}
+		//reporter.SimpleGen(localHostDir)
 		if doclear > 0 {
+			err := os.Remove(filepath.Join(dir, myhost.CFILE))
+			if err != nil {
+				return
+			}
 			sftptool.RemoveHC(sftpclient, myhost, detail)
 		} else {
 			fmt.Printf("Please Remove %s Manully!\n", myhost.RemoteDIR)
@@ -108,4 +103,5 @@ func main() {
 			panic("SSH Connect Failed:" + err.Error())
 		}
 	}
+	pause()
 }

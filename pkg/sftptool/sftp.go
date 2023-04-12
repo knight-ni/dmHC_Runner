@@ -4,20 +4,21 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/pkg/sftp"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"rtRunner/pkg/cfgparser"
 	"rtRunner/pkg/hctool"
 	"rtRunner/pkg/ostool"
-	"strconv"
-	"strings"
 	"time"
 )
 
 type HostInfo struct {
+	Customer  string
+	Appname   string
+	LocalDir  string
 	IP        string
 	SSH_PORT  int
 	DB_PORT   int
@@ -35,33 +36,25 @@ type HostInfo struct {
 	SimpleNo  int
 }
 
-func HostInit(hostinfo string, myhost *HostInfo) {
-	var err error
-	tmpstr := strings.Split(hostinfo, "|")
-	myhost.IP = tmpstr[0]
-	myhost.SSH_PORT, err = strconv.Atoi(tmpstr[1])
-	if err != nil {
-		panic("Invalid SSH Port Number!")
-	}
-	myhost.DB_PORT, err = strconv.Atoi(tmpstr[2])
-	if err != nil {
-		panic("Invalid DB Port Number!")
-	}
-	myhost.DM_HOME = tmpstr[3]
-	myhost.OS = tmpstr[4]
-	myhost.CPU = tmpstr[5]
-	myhost.SSH_USR = tmpstr[6]
-	myhost.SSH_PWD = url.PathEscape(tmpstr[7])
-	myhost.DB_USR = tmpstr[8]
-	myhost.DB_PWD = url.PathEscape(tmpstr[9])
+func HostInit(host string, localdir string, mycfg cfgparser.Cfile, myhost *HostInfo) {
+	myhost.LocalDir = localdir
+	myhost.Customer = mycfg.GetStrVal(host, "customer")
+	myhost.Appname = mycfg.GetStrVal(host, "appname")
+	myhost.IP = mycfg.GetStrVal(host, "address")
+	myhost.SSH_PORT = mycfg.GetIntVal(host, "ssh_port")
+	myhost.DB_PORT = mycfg.GetIntVal(host, "db_port")
+	myhost.DM_HOME = mycfg.GetStrVal(host, "dm_home")
+	myhost.OS = mycfg.GetStrVal(host, "os")
+	myhost.CPU = mycfg.GetStrVal(host, "cpu")
+	myhost.SSH_USR = mycfg.GetStrVal(host, "ssh_usr")
+	myhost.SSH_PWD = url.PathEscape(mycfg.GetStrVal(host, "ssh_pwd"))
+	myhost.DB_USR = mycfg.GetStrVal(host, "db_usr")
+	myhost.DB_PWD = url.PathEscape(mycfg.GetStrVal(host, "db_pwd"))
 	myhost.HCFILE = hctool.DmHC_Sel(myhost.OS, myhost.CPU)
-	myhost.CFILE = fmt.Sprintf("conf_%s_%s.ini", myhost.IP, myhost.OS)
-	myhost.FLST = &[]string{}
-	myhost.RemoteDIR = tmpstr[10]
-	myhost.SimpleNo, err = strconv.Atoi(tmpstr[11])
-	if err != nil {
-		panic("Invalid Simple Number!")
-	}
+	myhost.RemoteDIR = mycfg.GetStrVal(host, "remotedir")
+	myhost.SimpleNo = mycfg.GetIntVal(host, "simple")
+	myhost.CFILE = fmt.Sprintf("conf_%s_%s_%d.ini", myhost.IP, myhost.OS, myhost.SimpleNo)
+	myhost.FLST = &[]string{myhost.HCFILE, myhost.CFILE}
 }
 
 func SshConnect(myhost HostInfo) (*ssh.Client, error) {
@@ -93,7 +86,7 @@ func SshConnect(myhost HostInfo) (*ssh.Client, error) {
 
 func DmHC_Chk(myhost HostInfo) {
 	for _, f := range *myhost.FLST {
-		if !ostool.Exists(f) {
+		if !ostool.Exists(filepath.Join(myhost.LocalDir, f)) {
 			panic(fmt.Sprintf("%s does not exist!\n", f))
 		}
 	}
@@ -125,7 +118,7 @@ func MkRemoteDir(client *sftp.Client, myhost HostInfo) {
 	}
 }
 
-func Upload(client *sftp.Client, myhost HostInfo, detail int64) {
+func Upload(client *sftp.Client, myhost HostInfo, detail int) {
 	//defer client.Close()
 
 	flst := []string{myhost.HCFILE, myhost.CFILE}
@@ -137,16 +130,16 @@ func Upload(client *sftp.Client, myhost HostInfo, detail int64) {
 		remoteFile := hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, f)
 		tarFile, err := client.Create(remoteFile)
 		if err != nil {
-			panic("Remote File Create Failed! " + err.Error())
+			panic("Remote File " + remoteFile + " Create Failed! " + err.Error())
 		}
 		err = client.Chmod(remoteFile, os.FileMode(0755))
 		if err != nil {
-			panic("Remote File Permission Change Failed! " + err.Error())
+			panic("Remote File " + remoteFile + " Permission Change Failed! " + err.Error())
 		}
 		defer tarFile.Close()
-		srcFile, err := os.Open(f)
+		srcFile, err := os.Open(filepath.Join(myhost.LocalDir, f))
 		if err != nil {
-			panic("Local File Open Failed! " + err.Error())
+			panic("Local File " + srcFile.Name() + " Open Failed! " + err.Error())
 		}
 		defer srcFile.Close()
 		buf := make([]byte, 2048)
@@ -155,12 +148,15 @@ func Upload(client *sftp.Client, myhost HostInfo, detail int64) {
 			if n == 0 {
 				break
 			}
-			tarFile.Write(buf[:n])
+			_, err := tarFile.Write(buf[:n])
+			if err != nil {
+				panic("Upload Write " + tarFile.Name() + " Failed! " + err.Error())
+			}
 		}
 	}
 }
 
-func RunCmd(client *ssh.Client, cmd string, detail int64) {
+func RunCmd(client *ssh.Client, cmd string, detail int) {
 	var (
 		err     error
 		session *ssh.Session
@@ -191,11 +187,11 @@ func RunCmd(client *ssh.Client, cmd string, detail int64) {
 	}
 }
 
-func Download(client *sftp.Client, localDir string, myhost HostInfo, detail int64) {
+func Download(client *sftp.Client, localDir string, myhost HostInfo, detail int) {
 	//defer client.Close()
 	tmplst, err := client.ReadDir(myhost.RemoteDIR)
 	if err != nil {
-		panic("Read Remote Directory Failed " + err.Error())
+		panic("Read Remote Directory " + myhost.RemoteDIR + " Failed! " + err.Error())
 	}
 	var downlst []string
 	filter := regexp.MustCompile(`.docx|.xlsx|.log`)
@@ -212,7 +208,7 @@ func Download(client *sftp.Client, localDir string, myhost HostInfo, detail int6
 	}
 	err = os.MkdirAll(localDir, os.FileMode(0755))
 	if err != nil {
-		panic("Local Directory Create Failed! " + err.Error())
+		panic("Local Directory " + localDir + " Create Failed! " + err.Error())
 	}
 
 	for _, f := range downlst {
@@ -221,13 +217,13 @@ func Download(client *sftp.Client, localDir string, myhost HostInfo, detail int6
 		}
 		srcFile, err := client.OpenFile(hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, f), os.O_RDONLY)
 		if err != nil {
-			panic("Remote File Open Failed! " + err.Error())
+			panic("Remote File " + srcFile.Name() + " Open Failed! " + err.Error())
 		}
 		defer srcFile.Close()
 
 		tarFile, err := os.Create(hctool.SmartPathJoin(myhost.OS, localDir, f))
 		if err != nil {
-			panic("Local File Create Failed! " + err.Error())
+			panic("Local File " + tarFile.Name() + " Create Failed! " + err.Error())
 		}
 		defer tarFile.Close()
 
@@ -237,12 +233,15 @@ func Download(client *sftp.Client, localDir string, myhost HostInfo, detail int6
 			if n == 0 {
 				break
 			}
-			tarFile.Write(buf[:n])
+			_, err := tarFile.Write(buf[:n])
+			if err != nil {
+				panic("Download Write " + tarFile.Name() + " Failed! " + err.Error())
+			}
 		}
 	}
 }
 
-func RunHC(client *ssh.Client, myhost HostInfo, detail int64) {
+func RunHC(client *ssh.Client, myhost HostInfo, detail int) {
 	var cmd string
 	if myhost.OS == "linux" {
 		cmd = "cd " + myhost.RemoteDIR + " && ./" + myhost.HCFILE + " " + myhost.CFILE
@@ -255,7 +254,7 @@ func RunHC(client *ssh.Client, myhost HostInfo, detail int64) {
 	RunCmd(client, cmd, detail)
 }
 
-func RemoveHC(client *sftp.Client, myhost HostInfo, detail int64) {
+func RemoveHC(client *sftp.Client, myhost HostInfo, detail int) {
 	for _, f := range *myhost.FLST {
 		fname := hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, f)
 		if detail > 0 {
@@ -302,12 +301,19 @@ func SmartIsAbs(osname, path string) bool {
 	return false
 }
 
-func ConfGen(myhost HostInfo, mylog *logrus.Logger) {
-	srccfg := cfgparser.Cfile{Path: fmt.Sprintf("conf_%s.ini", myhost.OS)}
-	srccfg.Initialize(mylog)
+func ConfGen(myhost HostInfo, dir string) {
+	srccfg := cfgparser.Cfile{Path: filepath.Join(dir, fmt.Sprintf("conf_%s.ini", myhost.OS))}
+	srccfg.Initialize()
+	srccfg.SetStrVal("baseinfo", "customer", myhost.Customer)
+	srccfg.SetStrVal("baseinfo", "appname", myhost.Appname)
 	srccfg.SetStrVal("database", "dmhome", myhost.DM_HOME)
 	srccfg.SetStrVal("database", "svrname", fmt.Sprintf("127.0.0.1:%d", myhost.DB_PORT))
 	srccfg.SetStrVal("database", "username", myhost.DB_USR)
 	srccfg.SetStrVal("database", "password", myhost.DB_PWD)
-	srccfg.SaveFile(myhost.CFILE)
+	if myhost.SimpleNo == 1 {
+		srccfg.SetStrVal("report", "dbinfo_top", "0")
+		srccfg.SetStrVal("report", "dbinfo_log", "0")
+		srccfg.SetStrVal("report", "secinfo", "0")
+	}
+	srccfg.SaveFile(filepath.Join(dir, myhost.CFILE))
 }
