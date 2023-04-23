@@ -60,7 +60,7 @@ func main() {
 	for _, host := range runlst {
 		sftptool.HostInit(host, dir, mycfg, &myhost)
 		sftptool.ConfGen(myhost, dir)
-		localHostDir := filepath.Join(localDir, fmt.Sprintf("%s_%d", myhost.IP, myhost.SimpleNo))
+		localHostDir := filepath.Join(localDir, fmt.Sprintf("%s_%d_%d", myhost.IP, myhost.DB_PORT, myhost.SimpleNo))
 		myhost.RemoteDIR = hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, time.Now().Format("20060102"))
 		myhost.RemoteDIR = hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, "")
 		sshclient, err = sftptool.SshConnect(myhost)
