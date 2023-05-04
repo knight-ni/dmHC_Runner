@@ -2,6 +2,9 @@ package sftptool
 
 import (
 	"bytes"
+	"dmHC_Runner/pkg/cfgparser"
+	"dmHC_Runner/pkg/hctool"
+	"dmHC_Runner/pkg/ostool"
 	"fmt"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
@@ -10,9 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"rtRunner/pkg/cfgparser"
-	"rtRunner/pkg/hctool"
-	"rtRunner/pkg/ostool"
 	"sort"
 	"time"
 )

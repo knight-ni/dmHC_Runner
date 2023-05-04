@@ -1,14 +1,14 @@
 package main
 
 import (
+	"dmHC_Runner/pkg/cfgparser"
+	"dmHC_Runner/pkg/hctool"
+	"dmHC_Runner/pkg/sftptool"
 	"fmt"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 	"os"
 	"path/filepath"
-	"rtRunner/pkg/cfgparser"
-	"rtRunner/pkg/hctool"
-	"rtRunner/pkg/sftptool"
 	"strings"
 	"time"
 )
@@ -28,7 +28,7 @@ func main() {
 		myhost     sftptool.HostInfo
 		dir        string
 	)
-
+	defer pause()
 	mycfg := cfgparser.Cfile{}
 
 	if len(os.Args) > 1 {
@@ -60,6 +60,7 @@ func main() {
 	for _, host := range runlst {
 		sftptool.HostInit(host, dir, mycfg, &myhost)
 		sftptool.ConfGen(myhost, dir)
+		defer os.Remove(filepath.Join(dir, myhost.CFILE))
 		localHostDir := filepath.Join(localDir, fmt.Sprintf("%s_%d_%d", myhost.IP, myhost.DB_PORT, myhost.SimpleNo))
 		myhost.RemoteDIR = hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, time.Now().Format("20060102"))
 		myhost.RemoteDIR = hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, "")
@@ -72,6 +73,7 @@ func main() {
 			panic("SFTP Connect Failed:" + err.Error())
 		}
 		fmt.Printf(">>>>>> Working On Instance: %s:%d <<<<<<<\n", myhost.IP, myhost.DB_PORT)
+
 		sftptool.MkRemoteDir(sftpclient, myhost)
 		if overwrite == 0 {
 			sftptool.ChkDirEmpty(sftpclient, myhost)
@@ -80,15 +82,11 @@ func main() {
 		sftptool.Upload(sftpclient, myhost, detail)
 		sftptool.RunHC(sshclient, myhost, detail)
 		sftptool.Download(sftpclient, localHostDir, myhost, detail)
-		//reporter.SimpleGen(localHostDir)
+
 		if doclear > 0 {
-			err := os.Remove(filepath.Join(dir, myhost.CFILE))
-			if err != nil {
-				return
-			}
 			sftptool.RemoveHC(sftpclient, myhost, detail)
 		} else {
-			fmt.Printf("Please Remove %s Manully!\n", myhost.RemoteDIR)
+			fmt.Printf("Please Remove %s Manully!\n\n", myhost.RemoteDIR)
 		}
 		err = sftpclient.Close()
 		if err != nil {
@@ -99,5 +97,4 @@ func main() {
 			panic("SSH Connect Failed:" + err.Error())
 		}
 	}
-	pause()
 }

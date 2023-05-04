@@ -7,7 +7,7 @@ for %%a in (%archlist%) do (
    for  %%b in (%oslist%) do (
     set GOARCH=%%a
     set GOOS=%%b
-      D:\Programes\GoLANG1.19.3\go1.19.3\bin\go build -o bin/%%b/dmHC_Runner_%%b_%%a.exe
+      D:\Programes\GoLANG1.20.3\go1.20.3\bin\go build -ldflags "-s -w" -o bin/%%b/dmHC_Runner_%%b_%%a.exe
    )
 )
 pause
