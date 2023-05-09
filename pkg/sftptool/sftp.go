@@ -7,6 +7,7 @@ import (
 	"dmHC_Runner/pkg/ostool"
 	"fmt"
 	"github.com/pkg/sftp"
+	"github.com/wxnacy/wgo/file"
 	"golang.org/x/crypto/ssh"
 	"net"
 	"net/url"
@@ -36,6 +37,7 @@ type HostInfo struct {
 	FLST      *[]string
 	RemoteDIR string
 	SimpleNo  int
+	RsaFile   string
 }
 
 func in(target string, str_array []string) bool {
@@ -85,6 +87,7 @@ func HostInit(host string, localdir string, mycfg cfgparser.Cfile, myhost *HostI
 	}
 	myhost.CFILE = fmt.Sprintf("conf_%s_%s_%d.ini", myhost.IP, myhost.OS, myhost.SimpleNo)
 	myhost.FLST = &[]string{myhost.HCFILE, myhost.CFILE}
+	myhost.RsaFile = mycfg.GetStrVal(host, "rsa_file")
 }
 
 func SshConnect(myhost HostInfo) (*ssh.Client, error) {
@@ -96,8 +99,21 @@ func SshConnect(myhost HostInfo) (*ssh.Client, error) {
 		err          error
 		//hostKey      ssh.PublicKey
 	)
+
 	// get auth method
 	auth = make([]ssh.AuthMethod, 0)
+
+	if file.Exists(myhost.RsaFile) {
+		key, err := os.ReadFile(myhost.RsaFile)
+		if err != nil {
+			return nil, err
+		}
+		signer, err := ssh.ParsePrivateKey(key)
+		if err != nil {
+			return nil, err
+		}
+		auth = append(auth, ssh.PublicKeys(signer))
+	}
 	auth = append(auth, ssh.Password(myhost.SSH_PWD))
 	clientConfig = &ssh.ClientConfig{
 		User:            myhost.SSH_USR,
