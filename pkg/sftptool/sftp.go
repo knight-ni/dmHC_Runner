@@ -69,7 +69,7 @@ func HostInit(host string, localdir string, mycfg cfgparser.Cfile, myhost *HostI
 		panic(fmt.Sprintf("CPU Can Only Be In %v", hctool.Support_CPU))
 	}
 	myhost.SSH_USR = mycfg.GetStrVal(host, "ssh_usr")
-	myhost.SSH_PWD = url.PathEscape(mycfg.GetStrVal(host, "ssh_pwd"))
+	myhost.SSH_PWD = mycfg.GetStrVal(host, "ssh_pwd")
 	myhost.DB_USR = mycfg.GetStrVal(host, "db_usr")
 	myhost.DB_PWD = url.PathEscape(mycfg.GetStrVal(host, "db_pwd"))
 	myhost.HCFILE = hctool.DmHC_Sel(myhost.OS, myhost.CPU)
@@ -103,6 +103,7 @@ func SshConnect(myhost HostInfo) (*ssh.Client, error) {
 	// get auth method
 	auth = make([]ssh.AuthMethod, 0)
 
+	//fmt.Println(myhost.SSH_PWD)
 	if file.Exists(myhost.RsaFile) {
 		key, err := os.ReadFile(myhost.RsaFile)
 		if err != nil {
@@ -113,14 +114,26 @@ func SshConnect(myhost HostInfo) (*ssh.Client, error) {
 			return nil, err
 		}
 		auth = append(auth, ssh.PublicKeys(signer))
+	} else {
+		auth = append(auth, ssh.Password(myhost.SSH_PWD))
 	}
-	auth = append(auth, ssh.Password(myhost.SSH_PWD))
 	clientConfig = &ssh.ClientConfig{
-		User:            myhost.SSH_USR,
-		Auth:            auth,
-		Timeout:         30 * time.Second,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		User:    myhost.SSH_USR,
+		Auth:    auth,
+		Timeout: 30 * time.Second,
+		//HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		//ssh.FixedHostKey(hostKey),
+		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			return nil
+		},
+		HostKeyAlgorithms: []string{
+			ssh.KeyAlgoRSA,
+			ssh.KeyAlgoDSA,
+			ssh.KeyAlgoECDSA256,
+			ssh.KeyAlgoECDSA384,
+			ssh.KeyAlgoECDSA521,
+			ssh.KeyAlgoED25519,
+		},
 	}
 	// connet to sshtool
 	addr = fmt.Sprintf("%s:%d", myhost.IP, myhost.SSH_PORT)
