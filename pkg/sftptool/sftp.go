@@ -19,25 +19,26 @@ import (
 )
 
 type HostInfo struct {
-	Customer  string
-	Appname   string
-	LocalDir  string
-	IP        string
-	SSH_PORT  int
-	DB_PORT   int
-	DM_HOME   string
-	OS        string
-	CPU       string
-	SSH_USR   string
-	SSH_PWD   string
-	DB_USR    string
-	DB_PWD    string
-	HCFILE    string
-	CFILE     string
-	FLST      *[]string
-	RemoteDIR string
-	SimpleNo  int
-	RsaFile   string
+	Customer     string
+	Appname      string
+	LocalDir     string
+	IP           string
+	SSH_PORT     int
+	DB_PORT      int
+	DM_HOME      string
+	OS           string
+	CPU          string
+	SSH_USR      string
+	SSH_PWD      string
+	DB_USR       string
+	DB_PWD       string
+	HCFILE       string
+	CFILE        string
+	FLST         *[]string
+	RemoteDIR    string
+	RemoteDIROut string
+	SimpleNo     int
+	RsaFile      string
 }
 
 func in(target string, str_array []string) bool {
@@ -161,6 +162,23 @@ func SftpConnect(client *ssh.Client) (*sftp.Client, error) {
 		return nil, err
 	}
 	return sftpClient, nil
+}
+
+func ChkRemoteDirExists(client *sftp.Client, myhost HostInfo) bool {
+	var (
+		fi  os.FileInfo
+		err error
+	)
+
+	fi, err = client.Stat(myhost.RemoteDIROut)
+	if err != nil && err != os.ErrNotExist {
+		panic("Remote Directory Check Failed! " + err.Error())
+	} else if err == nil && fi.IsDir() {
+		return true
+	} else if err == nil && !fi.IsDir() {
+		panic("Remote Directory Name Already Been Used By Other File!")
+	}
+	return false
 }
 
 func MkRemoteDir(client *sftp.Client, myhost HostInfo) {
@@ -326,7 +344,7 @@ func RemoveHC(client *sftp.Client, myhost HostInfo, detail int) {
 
 	}
 	if detail > 0 {
-		fmt.Printf(">>>>>> Removing Directory %s <<<<<<<\n", myhost.RemoteDIR)
+		fmt.Printf(">>>>>> Removing Directory %s <<<<<<<\n", myhost.RemoteDIROut)
 	}
 	err := client.RemoveDirectory(myhost.RemoteDIR)
 	if err != nil {
@@ -334,14 +352,15 @@ func RemoveHC(client *sftp.Client, myhost HostInfo, detail int) {
 	}
 }
 
-func ChkDirEmpty(client *sftp.Client, myhost HostInfo) {
+func ChkDirEmpty(client *sftp.Client, myhost HostInfo) bool {
 	tmplst, err := client.ReadDir(myhost.RemoteDIR)
 	if err != nil {
 		panic("Read Remote Directory Failed " + err.Error())
 	}
 	if len(tmplst) != 0 {
-		panic("Remote Directory Not Empty!")
+		return false
 	}
+	return true
 }
 
 func ChkRemotePath(myhost *HostInfo) bool {

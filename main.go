@@ -64,6 +64,7 @@ func main() {
 		localHostDir := filepath.Join(localDir, fmt.Sprintf("%s_%d_%d", myhost.IP, myhost.DB_PORT, myhost.SimpleNo))
 		myhost.RemoteDIR = hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, time.Now().Format("20060102"))
 		myhost.RemoteDIR = hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, "")
+		myhost.RemoteDIROut = myhost.RemoteDIR[:len(myhost.RemoteDIR)-1]
 		sshclient, err = sftptool.SshConnect(myhost)
 		if err != nil {
 			panic("SSH Connect Failed:" + err.Error())
@@ -74,10 +75,12 @@ func main() {
 		}
 		fmt.Printf(">>>>>> Working On Instance: %s:%d <<<<<<<\n", myhost.IP, myhost.DB_PORT)
 
-		sftptool.MkRemoteDir(sftpclient, myhost)
-		if overwrite == 0 {
-			sftptool.ChkDirEmpty(sftpclient, myhost)
+		if !sftptool.ChkRemoteDirExists(sftpclient, myhost) {
+			sftptool.MkRemoteDir(sftpclient, myhost)
+		} else if !sftptool.ChkDirEmpty(sftpclient, myhost) && overwrite == 0 {
+			panic("Remote Directory Not Empty!")
 		}
+
 		sftptool.DmHC_Chk(myhost)
 		sftptool.Upload(sftpclient, myhost, detail)
 		sftptool.RunHC(sshclient, myhost, detail)
@@ -86,7 +89,7 @@ func main() {
 		if doclear > 0 {
 			sftptool.RemoveHC(sftpclient, myhost, detail)
 		} else {
-			fmt.Printf("Please Remove %s Manully!\n\n", myhost.RemoteDIR)
+			fmt.Printf("Please Remove %s Manully!\n\n", myhost.RemoteDIROut)
 		}
 		err = sftpclient.Close()
 		if err != nil {
