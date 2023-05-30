@@ -87,7 +87,7 @@ func HostInit(host string, localdir string, mycfg cfgparser.Cfile, myhost *HostI
 		panic("SimpleNo Can Only Be 0 or 1!")
 	}
 	myhost.CFILE = fmt.Sprintf("conf_%s_%s_%d.ini", myhost.IP, myhost.OS, myhost.SimpleNo)
-	myhost.FLST = &[]string{myhost.HCFILE, myhost.CFILE}
+	myhost.FLST = &[]string{}
 	myhost.RsaFile = mycfg.GetStrVal(host, "rsa_file")
 }
 
@@ -198,7 +198,7 @@ func MkRemoteDir(client *sftp.Client, myhost HostInfo) {
 func Upload(client *sftp.Client, myhost HostInfo, detail int) {
 	//defer client.Close()
 
-	flst := []string{myhost.HCFILE, myhost.CFILE}
+	flst := []string{myhost.HCFILE, myhost.CFILE, "dmHC.lic"}
 
 	for _, f := range flst {
 		if detail > 0 {
@@ -230,6 +230,7 @@ func Upload(client *sftp.Client, myhost HostInfo, detail int) {
 				panic("Upload Write " + tarFile.Name() + " Failed! " + err.Error())
 			}
 		}
+		*myhost.FLST = append(*myhost.FLST, f)
 	}
 }
 
@@ -341,7 +342,6 @@ func RemoveHC(client *sftp.Client, myhost HostInfo, detail int) {
 		if err != nil {
 			panic("Removing File Failed:" + err.Error())
 		}
-
 	}
 	if detail > 0 {
 		fmt.Printf(">>>>>> Removing Directory %s <<<<<<<\n", myhost.RemoteDIROut)

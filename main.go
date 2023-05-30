@@ -2,6 +2,7 @@ package main
 
 import (
 	"dmHC_Runner/pkg/cfgparser"
+	"dmHC_Runner/pkg/docx2pdf"
 	"dmHC_Runner/pkg/hctool"
 	"dmHC_Runner/pkg/sftptool"
 	"fmt"
@@ -49,6 +50,7 @@ func main() {
 	runstr := mycfg.GetStrVal("base", "hostlist")
 	doclear := mycfg.GetIntVal("base", "doclear")
 	overwrite := mycfg.GetIntVal("base", "overwrite")
+	convpdf := mycfg.GetIntVal("base", "convert2pdf")
 	detail := mycfg.GetIntVal("debug", "show_verbose")
 	if runstr != "" {
 		runlst = strings.Split(runstr, "|")
@@ -83,9 +85,16 @@ func main() {
 
 		sftptool.DmHC_Chk(myhost)
 		sftptool.Upload(sftpclient, myhost, detail)
+		fmt.Println(myhost.FLST)
 		sftptool.RunHC(sshclient, myhost, detail)
 		sftptool.Download(sftpclient, localHostDir, myhost, detail)
-
+		fmt.Println(myhost.FLST)
+		if convpdf > 0 {
+			err := docx2pdf.WordToPDF(myhost, localHostDir, detail)
+			if err != nil {
+				fmt.Printf("Convert Docx to PDF Failed! Error:%s", err.Error())
+			}
+		}
 		if doclear > 0 {
 			sftptool.RemoveHC(sftpclient, myhost, detail)
 		} else {
