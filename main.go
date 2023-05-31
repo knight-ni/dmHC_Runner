@@ -85,14 +85,12 @@ func main() {
 
 		sftptool.DmHC_Chk(myhost)
 		sftptool.Upload(sftpclient, myhost, detail)
-		fmt.Println(myhost.FLST)
 		sftptool.RunHC(sshclient, myhost, detail)
 		sftptool.Download(sftpclient, localHostDir, myhost, detail)
-		fmt.Println(myhost.FLST)
 		if convpdf > 0 {
 			err := docx2pdf.WordToPDF(myhost, localHostDir, detail)
 			if err != nil {
-				fmt.Printf("Convert Docx to PDF Failed! Error:%s", err.Error())
+				fmt.Printf("Convert Docx to PDF Failed! Error:%s\n", err.Error())
 			}
 		}
 		if doclear > 0 {

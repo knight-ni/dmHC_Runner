@@ -4,40 +4,11 @@ import (
 	"dmHC_Runner/pkg/hctool"
 	"dmHC_Runner/pkg/sftptool"
 	"fmt"
-	"github.com/unidoc/unioffice/common/license"
 	"github.com/unidoc/unioffice/document"
 	"github.com/unidoc/unioffice/document/convert"
-	unipdflicense "github.com/unidoc/unipdf/v3/common/license"
-	"github.com/wxnacy/wgo/file"
 	"regexp"
 	"strings"
 )
-
-const licfile = "dmHC.lic"
-
-func init() {
-	apiKey, err := file.ReadFile(licfile)
-	if apiKey == "" {
-		fmt.Errorf("missing License")
-	}
-
-	err = unipdflicense.SetMeteredKey(apiKey)
-	if err != nil {
-		fmt.Printf("ERROR: Failed to set metered key: %v\n", err)
-		fmt.Printf("Make sure to get a valid key from https://cloud.unidoc.io\n")
-		fmt.Printf("If you don't have one - Grab one in the Free Tier at https://cloud.unidoc.io\n")
-		panic(err)
-	}
-
-	// This example requires both for unioffice and unipdf.
-	err = license.SetMeteredKey(apiKey)
-	if err != nil {
-		fmt.Printf("ERROR: Failed to set metered key: %v\n", err)
-		fmt.Printf("Make sure to get a valid key from https://cloud.unidoc.io\n")
-		fmt.Printf("If you don't have one - Grab one in the Free Tier at https://cloud.unidoc.io\n")
-		panic(err)
-	}
-}
 
 func WordToPDF(myhost sftptool.HostInfo, localdir string, detail int) error {
 	var docxname string
