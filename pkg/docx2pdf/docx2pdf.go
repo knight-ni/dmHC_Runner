@@ -14,6 +14,9 @@ func WordToPDF(myhost sftptool.HostInfo, localdir string, detail int) error {
 	var docxname string
 	var pdfname string
 	filter := regexp.MustCompile(`.docx`)
+	//TEST BY KNIGHT
+	//*myhost.FLST = append(*myhost.FLST, "1_.1_centos_DMSERVER20230530.docx")
+	//
 	for _, f := range *myhost.FLST {
 		if filter.FindString(f) != "" {
 			docxname = hctool.SmartPathJoin(myhost.OS, localdir, f)

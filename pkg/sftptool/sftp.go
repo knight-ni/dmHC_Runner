@@ -104,7 +104,6 @@ func SshConnect(myhost HostInfo) (*ssh.Client, error) {
 	// get auth method
 	auth = make([]ssh.AuthMethod, 0)
 
-	//fmt.Println(myhost.SSH_PWD)
 	if file.Exists(myhost.RsaFile) {
 		key, err := os.ReadFile(myhost.RsaFile)
 		if err != nil {

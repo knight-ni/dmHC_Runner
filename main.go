@@ -82,7 +82,6 @@ func main() {
 		} else if !sftptool.ChkDirEmpty(sftpclient, myhost) && overwrite == 0 {
 			panic("Remote Directory Not Empty!")
 		}
-
 		sftptool.DmHC_Chk(myhost)
 		sftptool.Upload(sftpclient, myhost, detail)
 		sftptool.RunHC(sshclient, myhost, detail)
@@ -94,7 +93,7 @@ func main() {
 			}
 		}
 		if doclear > 0 {
-			sftptool.RemoveHC(sftpclient, myhost, detail)
+			//	sftptool.RemoveHC(sftpclient, myhost, detail)
 		} else {
 			fmt.Printf("Please Remove %s Manully!\n\n", myhost.RemoteDIROut)
 		}
