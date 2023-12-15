@@ -213,7 +213,11 @@ func Upload(client *sftp.Client, myhost HostInfo, detail int) {
 			panic("Remote File " + remoteFile + " Permission Change Failed! " + err.Error())
 		}
 		defer tarFile.Close()
-		srcFile, err := os.Open(filepath.Join(myhost.LocalDir, f))
+		srcFilePath := filepath.Join(myhost.LocalDir, f)
+		if !file.Exists(srcFilePath) {
+			panic("Local File " + srcFilePath + " Does Not Exists! ")
+		}
+		srcFile, err := os.Open(srcFilePath)
 		if err != nil {
 			panic("Local File " + srcFile.Name() + " Open Failed! " + err.Error())
 		}

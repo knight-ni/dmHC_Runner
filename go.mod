@@ -9,7 +9,7 @@ require (
 	github.com/safchain/ethtool v0.3.0
 	github.com/shirou/gopsutil/v3 v3.23.4
 	github.com/sirupsen/logrus v1.9.0
-	github.com/unidoc/unioffice v1.26.0
+	github.com/unidoc/unioffice v1.29.0
 	github.com/unidoc/unipdf/v3 v3.37.0
 	github.com/wxnacy/wgo v1.0.4
 	github.com/yusufpapurcu/wmi v1.2.2
