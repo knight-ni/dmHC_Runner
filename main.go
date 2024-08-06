@@ -67,43 +67,67 @@ func main() {
 		myhost.RemoteDIR = hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, time.Now().Format("20060102"))
 		myhost.RemoteDIR = hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, "")
 		myhost.RemoteDIROut = myhost.RemoteDIR[:len(myhost.RemoteDIR)-1]
-		sshclient, err = sftptool.SshConnect(myhost)
-		if err != nil {
-			panic("SSH Connect Failed:" + err.Error())
-		}
-		sftpclient, err = sftptool.SftpConnect(sshclient)
-		if err != nil {
-			panic("SFTP Connect Failed:" + err.Error())
-		}
-		fmt.Printf(">>>>>> Working On Instance: %s:%d <<<<<<<\n", myhost.IP, myhost.DB_PORT)
-
-		if !sftptool.ChkRemoteDirExists(sftpclient, myhost) {
-			sftptool.MkRemoteDir(sftpclient, myhost)
-		} else if !sftptool.ChkDirEmpty(sftpclient, myhost) && overwrite == 0 {
-			panic("Remote Directory Not Empty!")
-		}
-		sftptool.DmHC_Chk(myhost)
-		sftptool.Upload(sftpclient, myhost, detail)
-		sftptool.RunHC(sshclient, myhost, detail)
-		sftptool.Download(sftpclient, localHostDir, myhost, detail)
-		if convpdf > 0 {
-			err := docx2pdf.WordToPDF(myhost, localHostDir, detail)
+		if !sftptool.IsLocalIP(myhost.IP) {
+			sshclient, err = sftptool.SshConnect(myhost)
 			if err != nil {
-				fmt.Printf("Convert Docx to PDF Failed! Error:%s\n", err.Error())
+				panic("SSH Connect Failed:" + err.Error())
 			}
-		}
-		if doclear > 0 {
-			//	sftptool.RemoveHC(sftpclient, myhost, detail)
+			sftpclient, err = sftptool.SftpConnect(sshclient)
+			if err != nil {
+				panic("SFTP Connect Failed:" + err.Error())
+			}
+			fmt.Printf(">>>>>> Working On Instance: %s:%d <<<<<<<\n", myhost.IP, myhost.DB_PORT)
+
+			if !sftptool.ChkRemoteDirExists(sftpclient, myhost) {
+				sftptool.MkRemoteDir(sftpclient, myhost)
+			} else if !sftptool.ChkDirEmpty(sftpclient, myhost) && overwrite == 0 {
+				panic("Remote Directory Not Empty!")
+			}
+			sftptool.DmHC_Chk(myhost)
+			sftptool.Upload(sftpclient, myhost, detail)
+			sftptool.RunHC(sshclient, myhost, detail)
+			sftptool.Download(sftpclient, localHostDir, myhost, detail)
+			if convpdf > 0 {
+				err := docx2pdf.WordToPDF(myhost, localHostDir, detail)
+				if err != nil {
+					fmt.Printf("Convert Docx to PDF Failed! Error:%s\n", err.Error())
+				}
+			}
+			if doclear > 0 {
+				//	sftptool.RemoveHC(sftpclient, myhost, detail)
+			} else {
+				fmt.Printf("Please Remove %s Manully!\n\n", myhost.RemoteDIROut)
+			}
+			err = sftpclient.Close()
+			if err != nil {
+				panic("SFTP Connect Failed:" + err.Error())
+			}
+			err = sshclient.Close()
+			if err != nil {
+				panic("SSH Connect Failed:" + err.Error())
+			}
 		} else {
-			fmt.Printf("Please Remove %s Manully!\n\n", myhost.RemoteDIROut)
-		}
-		err = sftpclient.Close()
-		if err != nil {
-			panic("SFTP Connect Failed:" + err.Error())
-		}
-		err = sshclient.Close()
-		if err != nil {
-			panic("SSH Connect Failed:" + err.Error())
+			fmt.Printf(">>>>>> Working On Instance: %s:%d <<<<<<<\n", myhost.IP, myhost.DB_PORT)
+			if !sftptool.ChkLocalHostDirExists(myhost) {
+				sftptool.MkLocalHostDir(myhost)
+			} else if !sftptool.ChkLocalHostDirEmpty(myhost) && overwrite == 0 {
+				panic("Remote Directory Not Empty!")
+			}
+			sftptool.DmHC_Chk(myhost)
+			sftptool.LocalHostUpload(myhost, detail)
+			sftptool.RunLocalHostHC(myhost, detail)
+			sftptool.LocalHostDownload(localHostDir, myhost, detail)
+			if convpdf > 0 {
+				err := docx2pdf.WordToPDF(myhost, localHostDir, detail)
+				if err != nil {
+					fmt.Printf("Convert Docx to PDF Failed! Error:%s\n", err.Error())
+				}
+			}
+			if doclear > 0 {
+				//	sftptool.RemoveHC(sftpclient, myhost, detail)
+			} else {
+				fmt.Printf("Please Remove %s Manully!\n\n", myhost.RemoteDIROut)
+			}
 		}
 	}
 }

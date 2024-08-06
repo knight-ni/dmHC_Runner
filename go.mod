@@ -1,6 +1,6 @@
 module dmHC_Runner
 
-go 1.19
+go 1.22
 
 require (
 	gitee.com/jiewen/gooxml v0.0.0-20210903060946-c517a803bade

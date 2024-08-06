@@ -12,9 +12,11 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -89,6 +91,24 @@ func HostInit(host string, localdir string, mycfg cfgparser.Cfile, myhost *HostI
 	myhost.CFILE = fmt.Sprintf("conf_%s_%s_%d.ini", myhost.IP, myhost.OS, myhost.SimpleNo)
 	myhost.FLST = &[]string{}
 	myhost.RsaFile = mycfg.GetStrVal(host, "rsa_file")
+}
+
+func IsLocalIP(ip string) bool {
+	tmpip := net.ParseIP(ip)
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	for _, address := range addrs {
+		if ipnet, ok := address.(*net.IPNet); ok {
+			if ipnet.IP.To4() != nil && ipnet.IP.Equal(tmpip) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func SshConnect(myhost HostInfo) (*ssh.Client, error) {
@@ -170,8 +190,33 @@ func ChkRemoteDirExists(client *sftp.Client, myhost HostInfo) bool {
 	)
 
 	fi, err = client.Stat(myhost.RemoteDIROut)
-	if err != nil && err != os.ErrNotExist {
+	if err != nil {
+		return false
+	}
+
+	if err != nil && os.IsNotExist(err) {
 		panic("Remote Directory Check Failed! " + err.Error())
+	} else if err == nil && fi.IsDir() {
+		return true
+	} else if err == nil && !fi.IsDir() {
+		panic("Remote Directory Name Already Been Used By Other File!")
+	}
+	return false
+}
+
+func ChkLocalHostDirExists(myhost HostInfo) bool {
+	var (
+		fi  os.FileInfo
+		err error
+	)
+	fi, err = os.Stat(myhost.RemoteDIR)
+	if err != nil {
+		return false
+	}
+
+	fi, err = os.Stat(myhost.RemoteDIROut)
+	if err != nil {
+		return false
 	} else if err == nil && fi.IsDir() {
 		return true
 	} else if err == nil && !fi.IsDir() {
@@ -189,6 +234,20 @@ func MkRemoteDir(client *sftp.Client, myhost HostInfo) {
 		panic("Remote Directory Create Failed! " + err.Error())
 	}
 	err = client.Chmod(myhost.RemoteDIR, os.FileMode(0755))
+	if err != nil {
+		panic("Remote Directory Permission Change Failed! " + err.Error())
+	}
+}
+
+func MkLocalHostDir(myhost HostInfo) {
+	var (
+		err error
+	)
+	err = os.MkdirAll(myhost.RemoteDIROut, 0770)
+	if err != nil {
+		panic("Remote Directory Create Failed! " + err.Error())
+	}
+	err = os.Chmod(myhost.RemoteDIROut, os.FileMode(0755))
 	if err != nil {
 		panic("Remote Directory Permission Change Failed! " + err.Error())
 	}
@@ -235,6 +294,89 @@ func Upload(client *sftp.Client, myhost HostInfo, detail int) {
 		}
 		*myhost.FLST = append(*myhost.FLST, f)
 	}
+}
+
+func LocalHostUpload(myhost HostInfo, detail int) {
+	//defer client.Close()
+
+	flst := []string{myhost.HCFILE, myhost.CFILE, "dmHC.lic"}
+
+	for _, f := range flst {
+		if detail > 0 {
+			fmt.Printf(">>>>>> Sending File %s <<<<<<<\n", f)
+		}
+		remoteFile := hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, f)
+		tarFile, err := os.Create(remoteFile)
+		if err != nil {
+			panic("Remote File " + remoteFile + " Create Failed! " + err.Error())
+		}
+		err = os.Chmod(remoteFile, os.FileMode(0755))
+		if err != nil {
+			panic("Remote File " + remoteFile + " Permission Change Failed! " + err.Error())
+		}
+		defer tarFile.Close()
+		srcFilePath := filepath.Join(myhost.LocalDir, f)
+		if !file.Exists(srcFilePath) {
+			panic("Local File " + srcFilePath + " Does Not Exists! ")
+		}
+		srcFile, err := os.Open(srcFilePath)
+		if err != nil {
+			panic("Local File " + srcFile.Name() + " Open Failed! " + err.Error())
+		}
+		defer srcFile.Close()
+		buf := make([]byte, 2048)
+		for {
+			n, _ := srcFile.Read(buf)
+			if n == 0 {
+				break
+			}
+			_, err := tarFile.Write(buf[:n])
+			if err != nil {
+				panic("Upload Write " + tarFile.Name() + " Failed! " + err.Error())
+			}
+		}
+		*myhost.FLST = append(*myhost.FLST, f)
+	}
+}
+
+func RunLocalHostCmd(cmd string, detail int) {
+	var (
+		err error
+	)
+
+	cmdlst := strings.Split(cmd, "&&")
+	dirarg := strings.Join(strings.Split(cmdlst[0], " ")[2:], "")
+
+	err = os.Chdir(dirarg)
+	if err != nil {
+		panic("Change Directory Failed! " + err.Error())
+	}
+
+	cmdstr := strings.Split(cmdlst[1], " ")
+	command := exec.Command(".\\"+cmdstr[1], cmdstr[2:]...)
+
+	if err != nil {
+		panic("Command Create Failed! " + err.Error())
+	}
+
+	command.Stdin = bytes.NewBufferString("")
+	command.Stdout = &bytes.Buffer{}
+	command.Stderr = &bytes.Buffer{}
+
+	if detail > 0 {
+		fmt.Println("Command:%s\n", cmd)
+	}
+	if err := command.Run(); err != nil {
+		panic(
+			err.Error() + "\n" + command.Stdout.(*bytes.Buffer).String() + "\n" +
+				command.Stderr.(*bytes.Buffer).String(),
+		)
+	}
+	result := command.Stdout.(*bytes.Buffer).String()
+	if detail > 0 {
+		fmt.Println(result)
+	}
+
 }
 
 func RunCmd(client *ssh.Client, cmd string, detail int) {
@@ -322,6 +464,73 @@ func Download(client *sftp.Client, localDir string, myhost HostInfo, detail int)
 	}
 }
 
+func LocalHostDownload(localDir string, myhost HostInfo, detail int) {
+	//defer client.Close()
+	tmplst, err := os.ReadDir(myhost.RemoteDIR)
+	if err != nil {
+		panic("Read Remote Directory " + myhost.RemoteDIR + " Failed! " + err.Error())
+	}
+	var downlst []string
+	filter := regexp.MustCompile(`.docx|.xlsx|.log`)
+	for _, v := range tmplst {
+		if v.IsDir() {
+			continue
+		} else {
+			fname := filter.FindString(v.Name())
+			if fname != "" {
+				downlst = append(downlst, v.Name())
+				*myhost.FLST = append(*myhost.FLST, v.Name())
+			}
+		}
+	}
+	err = os.MkdirAll(localDir, os.FileMode(0755))
+	if err != nil {
+		panic("Local Directory " + localDir + " Create Failed! " + err.Error())
+	}
+
+	for _, f := range downlst {
+		if detail > 0 {
+			fmt.Printf(">>>>>> Receiving File %s <<<<<<<\n", f)
+		}
+		srcFile, err := os.OpenFile(hctool.SmartPathJoin(myhost.OS, myhost.RemoteDIR, f), os.O_RDONLY, 0644)
+		if err != nil {
+			panic("Remote File " + srcFile.Name() + " Open Failed! " + err.Error())
+		}
+		defer srcFile.Close()
+
+		tarFile, err := os.Create(hctool.SmartPathJoin(myhost.OS, localDir, f))
+		if err != nil {
+			panic("Local File " + tarFile.Name() + " Create Failed! " + err.Error())
+		}
+		defer tarFile.Close()
+
+		buf := make([]byte, 2048)
+		for {
+			n, _ := srcFile.Read(buf)
+			if n == 0 {
+				break
+			}
+			_, err := tarFile.Write(buf[:n])
+			if err != nil {
+				panic("Download Write " + tarFile.Name() + " Failed! " + err.Error())
+			}
+		}
+	}
+}
+
+func RunLocalHostHC(myhost HostInfo, detail int) {
+	var cmd string
+	if myhost.OS == "linux" {
+		cmd = "cd " + myhost.RemoteDIR + " && ./" + myhost.HCFILE + " " + myhost.CFILE
+	} else if myhost.OS == "windows" {
+		cmd = "cd /d " + myhost.RemoteDIR + " && " + myhost.HCFILE + " " + myhost.CFILE
+	}
+	if detail > 0 {
+		fmt.Printf(">>>>>> Collecting Info <<<<<<<\n")
+	}
+	RunLocalHostCmd(cmd, detail)
+}
+
 func RunHC(client *ssh.Client, myhost HostInfo, detail int) {
 	var cmd string
 	if myhost.OS == "linux" {
@@ -357,6 +566,17 @@ func RemoveHC(client *sftp.Client, myhost HostInfo, detail int) {
 
 func ChkDirEmpty(client *sftp.Client, myhost HostInfo) bool {
 	tmplst, err := client.ReadDir(myhost.RemoteDIR)
+	if err != nil {
+		panic("Read Remote Directory Failed " + err.Error())
+	}
+	if len(tmplst) != 0 {
+		return false
+	}
+	return true
+}
+
+func ChkLocalHostDirEmpty(myhost HostInfo) bool {
+	tmplst, err := os.ReadDir(myhost.RemoteDIR)
 	if err != nil {
 		panic("Read Remote Directory Failed " + err.Error())
 	}
