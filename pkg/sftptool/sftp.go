@@ -353,7 +353,7 @@ func RunLocalHostCmd(cmd string, detail int) {
 	}
 
 	cmdstr := strings.Split(cmdlst[1], " ")
-	command := exec.Command(".\\"+cmdstr[1], cmdstr[2:]...)
+	command := exec.Command(cmdstr[1], cmdstr[2:]...)
 
 	if err != nil {
 		panic("Command Create Failed! " + err.Error())
@@ -521,9 +521,9 @@ func LocalHostDownload(localDir string, myhost HostInfo, detail int) {
 func RunLocalHostHC(myhost HostInfo, detail int) {
 	var cmd string
 	if myhost.OS == "linux" {
-		cmd = "cd " + myhost.RemoteDIR + " && ./" + myhost.HCFILE + " " + myhost.CFILE
+		cmd = "cd -P " + myhost.RemoteDIR + " && ./" + myhost.HCFILE + " " + myhost.CFILE
 	} else if myhost.OS == "windows" {
-		cmd = "cd /d " + myhost.RemoteDIR + " && " + myhost.HCFILE + " " + myhost.CFILE
+		cmd = "cd /d " + myhost.RemoteDIR + " && .\\" + myhost.HCFILE + " " + myhost.CFILE
 	}
 	if detail > 0 {
 		fmt.Printf(">>>>>> Collecting Info <<<<<<<\n")
@@ -534,9 +534,9 @@ func RunLocalHostHC(myhost HostInfo, detail int) {
 func RunHC(client *ssh.Client, myhost HostInfo, detail int) {
 	var cmd string
 	if myhost.OS == "linux" {
-		cmd = "cd " + myhost.RemoteDIR + " && ./" + myhost.HCFILE + " " + myhost.CFILE
+		cmd = "cd -P " + myhost.RemoteDIR + " && ./" + myhost.HCFILE + " " + myhost.CFILE
 	} else if myhost.OS == "windows" {
-		cmd = "cd /d " + myhost.RemoteDIR + " && " + myhost.HCFILE + " " + myhost.CFILE
+		cmd = "cd /d " + myhost.RemoteDIR + " && .\\" + myhost.HCFILE + " " + myhost.CFILE
 	}
 	if detail > 0 {
 		fmt.Printf(">>>>>> Collecting Info <<<<<<<\n")
